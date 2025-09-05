@@ -1,0 +1,594 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, Download, Trophy, Coins, Star, Music, Users, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Types
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: string;
+  plays: number;
+  likes: number;
+  isExclusive: boolean;
+};
+
+type Playlist = {
+  id: string;
+  name: string;
+  songs: string[];
+};
+
+type Achievement = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  reward: number;
+};
+
+type Artist = {
+  id: string;
+  name: string;
+  followers: number;
+  isRising: boolean;
+};
+
+// Mock data
+const mockSongs: Song[] = [
+  { id: "1", title: "Midnight Dreams", artist: "Luna Eclipse", album: "Nocturnal Vibes", duration: "3:45", plays: 12400, likes: 8900, isExclusive: true },
+  { id: "2", title: "Digital Horizon", artist: "Neon Pulse", album: "Synthwave Collection", duration: "4:20", plays: 9800, likes: 7200, isExclusive: false },
+  { id: "3", title: "Echoes of Tomorrow", artist: "Solar Wind", album: "Ambient Journeys", duration: "5:15", plays: 15600, likes: 11200, isExclusive: true },
+  { id: "4", title: "Urban Jungle", artist: "Concrete Beats", album: "City Soundscapes", duration: "3:30", plays: 21000, likes: 15400, isExclusive: false },
+  { id: "5", title: "Stellar Voyage", artist: "Cosmic Drift", album: "Space Odyssey", duration: "6:10", plays: 8700, likes: 6500, isExclusive: true },
+  { id: "6", title: "Neon Nights", artist: "Retro Future", album: "80s Revival", duration: "3:55", plays: 32000, likes: 24500, isExclusive: false },
+];
+
+const mockPlaylists: Playlist[] = [
+  { id: "p1", name: "My Favorites", songs: ["1", "3", "5"] },
+  { id: "p2", name: "Workout Mix", songs: ["2", "4"] },
+  { id: "p3", name: "Chill Vibes", songs: ["3", "6"] },
+];
+
+const mockAchievements: Achievement[] = [
+  { id: "a1", title: "First Listen", description: "Listen to your first song", icon: "🎵", unlocked: true, reward: 10 },
+  { id: "a2", title: "Music Explorer", description: "Listen to 10 different songs", icon: "🎧", unlocked: true, reward: 25 },
+  { id: "a3", title: "Super Fan", description: "Listen to the same artist 50 times", icon: "🌟", unlocked: false, reward: 50 },
+  { id: "a4", title: "All Rounder", description: "Listen to songs from 20 different artists", icon: "🎸", unlocked: false, reward: 100 },
+];
+
+const mockArtists: Artist[] = [
+  { id: "ar1", name: "Luna Eclipse", followers: 12500, isRising: true },
+  { id: "ar2", name: "Neon Pulse", followers: 8900, isRising: false },
+  { id: "ar3", name: "Solar Wind", followers: 24500, isRising: true },
+  { id: "ar4", name: "Concrete Beats", followers: 31200, isRising: false },
+];
+
+export default function MinimalMusicStream() {
+  // Player state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [volume, setVolume] = useState(80);
+  const [progress, setProgress] = useState(0);
+  
+  // App state
+  const [songs] = useState<Song[]>(mockSongs);
+  const [playlists] = useState<Playlist[]>(mockPlaylists);
+  const [achievements] = useState<Achievement[]>(mockAchievements);
+  const [artists] = useState<Artist[]>(mockArtists);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("library");
+  const [songCoins, setSongCoins] = useState(125);
+  const [showAchievements, setShowAchievements] = useState(false);
+  
+  // AI Song Generator state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedSong, setGeneratedSong] = useState<Song | null>(null);
+  
+  // Filter songs based on search
+  const filteredSongs = songs.filter(song => 
+    song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    song.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    song.album.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Current song
+  const currentSong = songs[currentSongIndex];
+  
+  // Simulate progress when playing
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            handleNext();
+            return 0;
+          }
+          return prev + 0.5;
+        });
+      }, 100);
+    }
+    
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+  
+  // Player controls
+  const togglePlay = () => setIsPlaying(!isPlaying);
+  
+  const handleNext = () => {
+    setCurrentSongIndex(prev => (prev + 1) % songs.length);
+    setProgress(0);
+  };
+  
+  const handlePrevious = () => {
+    setCurrentSongIndex(prev => (prev - 1 + songs.length) % songs.length);
+    setProgress(0);
+  };
+  
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolume(parseInt(e.target.value));
+  };
+  
+  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProgress(parseInt(e.target.value));
+  };
+  
+  // AI Song Generator
+  const generateSong = () => {
+    if (aiPrompt.trim() && songCoins >= 50) {
+      setIsGenerating(true);
+      setSongCoins(prev => prev - 50);
+      
+      // Simulate AI generation
+      setTimeout(() => {
+        const newSong: Song = {
+          id: `gen-${Date.now()}`,
+          title: aiPrompt.substring(0, 20) + "...",
+          artist: "AI Generated",
+          album: "Custom Creations",
+          duration: "3:33",
+          plays: 0,
+          likes: 0,
+          isExclusive: true
+        };
+        setGeneratedSong(newSong);
+        setIsGenerating(false);
+      }, 1500);
+    }
+  };
+  
+  // Format time
+  const formatTime = (percent: number) => {
+    const totalSeconds = 195;
+    const currentSeconds = Math.floor((percent / 100) * totalSeconds);
+    const minutes = Math.floor(currentSeconds / 60);
+    const seconds = currentSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 text-gray-900">
+      {/* Header */}
+      <header className="p-4 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center space-x-2">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 w-8 h-8 rounded-lg flex items-center justify-center">
+              <Music className="h-5 w-5 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">StreamVault</h1>
+          </div>
+          
+          <div className="flex-1 max-w-md mx-8">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search songs, artists..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-full text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-300"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center bg-indigo-100 rounded-full px-3 py-1">
+              <Coins className="h-4 w-4 text-amber-500 mr-1" />
+              <span className="font-medium text-indigo-800">{songCoins}</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-gray-600 hover:text-indigo-600"
+              onClick={() => setShowAchievements(true)}
+            >
+              <Trophy className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
+        {/* Sidebar */}
+        <aside className="w-64 p-4 border-r border-gray-200 bg-white">
+          <nav className="space-y-1 mb-8">
+            <Button 
+              variant={activeTab === "library" ? "secondary" : "ghost"} 
+              className="w-full justify-start mb-1 text-gray-700 hover:text-indigo-600"
+              onClick={() => setActiveTab("library")}
+            >
+              <Music className="h-4 w-4 mr-3" />
+              Library
+            </Button>
+            <Button 
+              variant={activeTab === "artists" ? "secondary" : "ghost"} 
+              className="w-full justify-start mb-1 text-gray-700 hover:text-indigo-600"
+              onClick={() => setActiveTab("artists")}
+            >
+              <Users className="h-4 w-4 mr-3" />
+              Artists
+            </Button>
+            <Button 
+              variant={activeTab === "ai" ? "secondary" : "ghost"} 
+              className="w-full justify-start mb-1 text-gray-700 hover:text-indigo-600"
+              onClick={() => setActiveTab("ai")}
+            >
+              <Star className="h-4 w-4 mr-3" />
+              AI Creator
+            </Button>
+          </nav>
+          
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Playlists</h3>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-gray-500 hover:text-indigo-600">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {playlists.map(playlist => (
+                <div 
+                  key={playlist.id} 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100 cursor-pointer text-gray-700"
+                >
+                  <div className="bg-gray-200 border-2 border-dashed rounded-xl w-8 h-8 mr-3" />
+                  <span className="truncate text-sm">{playlist.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <Card className="bg-indigo-50 border-0">
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <Coins className="h-5 w-5 text-amber-500 mr-2" />
+                <div>
+                  <p className="text-sm font-medium text-indigo-900">Song Coins</p>
+                  <p className="text-lg font-bold text-indigo-700">{songCoins}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {activeTab === "library" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Exclusive Tracks</h2>
+                <div className="flex space-x-2">
+                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    Newest
+                  </Button>
+                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    Popular
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {filteredSongs.map(song => (
+                  <Card key={song.id} className="bg-white border border-gray-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="relative mb-4">
+                        <div className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg w-full aspect-square flex items-center justify-center">
+                          {song.isExclusive && (
+                            <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                              EXCLUSIVE
+                            </div>
+                          )}
+                          <Music className="h-10 w-10 text-white opacity-80" />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold truncate">{song.title}</h3>
+                        <p className="text-sm text-gray-600">{song.artist}</p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Play className="h-3 w-3 mr-1" />
+                          {song.plays > 1000 ? `${(song.plays/1000).toFixed(1)}k` : song.plays}
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white"
+                          onClick={() => {
+                            setCurrentSongIndex(songs.findIndex(s => s.id === song.id));
+                            setIsPlaying(true);
+                          }}
+                        >
+                          <Play className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {activeTab === "artists" && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Rising Artists</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                {artists.filter(a => a.isRising).map(artist => (
+                  <Card key={artist.id} className="bg-white border border-gray-200">
+                    <CardContent className="p-5">
+                      <div className="flex items-center">
+                        <div className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full w-14 h-14 flex items-center justify-center">
+                          <Users className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="font-bold text-lg">{artist.name}</h3>
+                          <p className="text-sm text-gray-600">{artist.followers.toLocaleString()} followers</p>
+                        </div>
+                        <Button className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white">
+                          Support
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              
+              <h3 className="text-xl font-bold text-gray-900 mb-4">All Artists</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {artists.map(artist => (
+                  <Card key={artist.id} className="bg-white border border-gray-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center">
+                        <div className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full w-10 h-10 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="ml-3">
+                          <h4 className="font-medium">{artist.name}</h4>
+                          <p className="text-xs text-gray-500">{artist.followers > 1000 ? `${(artist.followers/1000).toFixed(1)}k` : artist.followers} followers</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {activeTab === "ai" && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">AI Song Creator</h2>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="bg-white border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-gray-900">
+                      <Star className="h-5 w-5 mr-2 text-amber-500" />
+                      Create Custom Music
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-5">
+                      Describe the mood or style for your unique track. Our AI creates personalized music just for you.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm text-gray-700 mb-1 block">Describe your song</label>
+                        <textarea
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          placeholder="e.g., A relaxing acoustic piece with gentle piano..."
+                          className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-300"
+                          rows={4}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Coins className="h-5 w-5 text-amber-500 mr-1" />
+                          <span className="text-gray-700">Cost: 50 Coins</span>
+                        </div>
+                        <Button 
+                          onClick={generateSong}
+                          disabled={isGenerating || songCoins < 50 || !aiPrompt.trim()}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          {isGenerating ? "Creating..." : "Generate Song"}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-white border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-gray-900">Your Creations</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {generatedSong ? (
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
+                        <div className="flex items-center">
+                          <div className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg w-14 h-14 flex items-center justify-center">
+                            <Music className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="ml-4">
+                            <h3 className="font-bold">{generatedSong.title}</h3>
+                            <p className="text-sm text-gray-600">{generatedSong.artist}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2 mt-4">
+                          <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Play className="h-3 w-3 mr-1" />
+                            Play
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Star className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>Your AI-generated songs will appear here</p>
+                        <p className="text-sm mt-1">Create your first custom track!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Player */}
+      <footer className="border-t border-gray-200 bg-white p-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            {/* Current Song */}
+            <div className="flex items-center w-1/4">
+              <div className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg w-14 h-14 flex items-center justify-center">
+                <Music className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="font-medium text-gray-900">{currentSong.title}</p>
+                <p className="text-sm text-gray-600">{currentSong.artist}</p>
+              </div>
+              <Button variant="ghost" size="sm" className="ml-3 text-gray-500 hover:text-indigo-600">
+                <Heart className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Player Controls */}
+            <div className="flex flex-col items-center w-2/4">
+              <div className="flex items-center space-x-5 mb-2">
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-indigo-600" onClick={handlePrevious}>
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+                <Button 
+                  className="rounded-full w-10 h-10 p-0 bg-indigo-600 hover:bg-indigo-700" 
+                  onClick={togglePlay}
+                >
+                  {isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-indigo-600" onClick={handleNext}>
+                  <SkipForward className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="w-full flex items-center space-x-2">
+                <span className="text-xs text-gray-500">{formatTime(progress)}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={progress}
+                  onChange={handleProgressChange}
+                  className="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600"
+                />
+                <span className="text-xs text-gray-500">3:15</span>
+              </div>
+            </div>
+            
+            {/* Volume Control */}
+            <div className="flex items-center justify-end space-x-2 w-1/4">
+              <Volume2 className="h-4 w-4 text-gray-500" />
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={volume}
+                onChange={handleVolumeChange}
+                className="w-24 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600"
+              />
+            </div>
+          </div>
+        </div>
+      </footer>
+      
+      {/* Achievements Panel */}
+      {showAchievements && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white border border-gray-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center text-gray-900">
+                  <Trophy className="h-5 w-5 mr-2 text-amber-500" />
+                  Your Achievements
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowAchievements(false)}
+                  className="text-gray-500 hover:text-gray-900"
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {achievements.map(achievement => (
+                  <div 
+                    key={achievement.id} 
+                    className={`p-4 rounded-lg border ${
+                      achievement.unlocked 
+                        ? "bg-indigo-50 border-indigo-200" 
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-start">
+                      <span className="text-xl mr-3">{achievement.icon}</span>
+                      <div>
+                        <h3 className={`font-medium ${achievement.unlocked ? "text-gray-900" : "text-gray-500"}`}>
+                          {achievement.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">{achievement.description}</p>
+                        <div className="flex items-center mt-2">
+                          <Coins className="h-4 w-4 text-amber-500 mr-1" />
+                          <span className="text-sm font-medium">+{achievement.reward} Coins</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
